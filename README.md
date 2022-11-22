@@ -99,3 +99,6 @@ are in the [contribution guide](https://beam.apache.org/contribute/).
 * [Overview](https://beam.apache.org/use/beam-overview/)
 * Quickstart: [Java](https://beam.apache.org/get-started/quickstart-java), [Python](https://beam.apache.org/get-started/quickstart-py), [Go](https://beam.apache.org/get-started/quickstart-go)
 * [Community metrics](https://s.apache.org/beam-community-metrics)
+
+
+# powered by Alan Zhang
