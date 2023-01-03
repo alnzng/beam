@@ -17,9 +17,9 @@
  */
 package org.apache.beam.runners.samza.portable;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import org.apache.beam.runners.portability.testing.TestPortablePipelineOptions;
 import org.apache.beam.runners.portability.testing.TestPortableRunner;
 import org.apache.beam.runners.samza.SamzaJobServerDriver;
@@ -55,30 +55,18 @@ public class SamzaPortableTest {
     options.setDefaultEnvironmentType("EMBEDDED");
 
     SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
-    samzaOptions.setMaxBundleSize(10);
+    samzaOptions.setMaxBundleSize(1);
+    samzaOptions.setConfigOverride(ImmutableMap.of("task.callback.timeout.ms", "10000"));
 
     Pipeline pipeline = Pipeline.create(options);
     createStatefulPipeline(pipeline);
     pipeline.run().waitUntilFinish();
   }
 
-  private static void createSimplePipeline(Pipeline pipeline) {
-    pipeline
-        .apply(Create.of(1, 2, 3, 4))
-        .apply(
-            ParDo.of(
-                new DoFn<Integer, Void>() {
-                  @ProcessElement
-                  public void process(ProcessContext c) {
-                    System.out.println(c.element());
-                  }
-                }));
-  }
-
   private static void createStatefulPipeline(Pipeline pipeline) {
     final List<KV<String, Integer>> input = new ArrayList<>();
-    for (int i = 0; i < 20; i++) {
-      input.add(KV.of("" + i, 1));
+    for (int i = 1; i < 11; i++) {
+      input.add(KV.of("" + i, i));
     }
 
     final String sumStateId = "count-state";
@@ -93,37 +81,24 @@ public class SamzaPortableTest {
               ProcessContext c,
               @StateId(sumStateId) CombiningState<Integer, int[], Integer> count) {
 
-            randomSleep();
+            System.out.println("-> current sum is " + count.read());
             KV<String, Integer> value = c.element();
             count.add(value.getValue());
+            System.out.println("Added new value: " + value.getValue());
 
-            System.out.println("thread 2 is " + Thread.currentThread().getName());
-            System.out.println("sum is " + count.read());
+            triggerTimeout();
           }
         };
 
     pipeline
         .apply(Create.of(input))
-        .apply(
-            ParDo.of(
-                new DoFn<KV<String, Integer>, KV<String, Integer>>() {
-                  @ProcessElement
-                  public void process(ProcessContext c) {
-                    randomSleep();
-                    c.output(c.element());
-                    System.out.println("thread 1 is " + Thread.currentThread().getName());
-                  }
-                }))
         .apply(ParDo.of(doFn));
   }
 
-  private static void randomSleep() {
-    Random r = new Random();
+  private static void triggerTimeout() {
     try {
-      int s = r.nextInt(10);
-      System.out.println("sleep " + s);
-      Thread.sleep(s);
-    } catch (Exception e) {
+      Thread.sleep(30000L);
+    } catch (Exception ignored) {
     }
   }
 }
