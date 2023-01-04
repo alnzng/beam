@@ -17,9 +17,10 @@
  */
 package org.apache.beam.runners.samza.portable;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.beam.runners.portability.testing.TestPortablePipelineOptions;
 import org.apache.beam.runners.portability.testing.TestPortableRunner;
 import org.apache.beam.runners.samza.SamzaJobServerDriver;
@@ -37,26 +38,52 @@ import org.apache.beam.sdk.transforms.Sum;
 import org.apache.beam.sdk.values.KV;
 import org.junit.Test;
 
-@SuppressWarnings({
-  "rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
-  "unused" // TODO(BEAM-13271): Remove when new version of errorprone is released (2.11.0)
+
+@SuppressWarnings({"rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
+    "unused" // TODO(BEAM-13271): Remove when new version of errorprone is released (2.11.0)
 })
 public class SamzaPortableTest {
 
-  @Test
-  public void test() {
-    TestPortablePipelineOptions options =
-        PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
+  public static void main(String[] args) {
+    TestPortablePipelineOptions options = PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
     options.setJobServerDriver((Class) SamzaJobServerDriver.class);
-    options.setJobServerConfig(
-        "--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
+    options.setJobServerConfig("--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
     options.setRunner(TestPortableRunner.class);
     options.setEnvironmentExpirationMillis(10000);
     options.setDefaultEnvironmentType("EMBEDDED");
 
     SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
-    samzaOptions.setMaxBundleSize(1);
-    samzaOptions.setConfigOverride(ImmutableMap.of("task.callback.timeout.ms", "10000"));
+    samzaOptions.setMaxBundleSize(3);
+
+    Map<String, String> configs = new HashMap<>();
+    configs.put("task.callback.timeout.ms", "5000");
+    samzaOptions.setConfigOverride(configs);
+
+    Pipeline pipeline = Pipeline.create(options);
+    createStatefulPipeline(pipeline);
+    pipeline.run().waitUntilFinish();
+  }
+
+  @Test
+  public void testClassic() {
+    System.out.println("Hello...");
+  }
+
+  @Test
+  public void test() {
+    TestPortablePipelineOptions options = PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
+    options.setJobServerDriver((Class) SamzaJobServerDriver.class);
+    options.setJobServerConfig("--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
+    options.setRunner(TestPortableRunner.class);
+    options.setEnvironmentExpirationMillis(10000);
+    options.setDefaultEnvironmentType("EMBEDDED");
+
+    SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
+    samzaOptions.setMaxBundleSize(3);
+
+    Map<String, String> configs = new HashMap<>();
+    configs.put("task.callback.timeout.ms", "5000");
+    samzaOptions.setConfigOverride(configs);
 
     Pipeline pipeline = Pipeline.create(options);
     createStatefulPipeline(pipeline);
@@ -65,39 +92,39 @@ public class SamzaPortableTest {
 
   private static void createStatefulPipeline(Pipeline pipeline) {
     final List<KV<String, Integer>> input = new ArrayList<>();
-    for (int i = 1; i < 11; i++) {
+    for (int i = 0; i < 10; i++) {
       input.add(KV.of("" + i, i));
     }
 
     final String sumStateId = "count-state";
-    final DoFn<KV<String, Integer>, Void> doFn =
-        new DoFn<KV<String, Integer>, Void>() {
-          @StateId(sumStateId)
-          private final StateSpec<CombiningState<Integer, int[], Integer>> sumState =
-              StateSpecs.combiningFromInputInternal(VarIntCoder.of(), Sum.ofIntegers());
+    final DoFn<KV<String, Integer>, Void> doFn = new DoFn<KV<String, Integer>, Void>() {
+      @StateId(sumStateId)
+      private final StateSpec<CombiningState<Integer, int[], Integer>> sumState =
+          StateSpecs.combiningFromInputInternal(VarIntCoder.of(), Sum.ofIntegers());
 
-          @ProcessElement
-          public void processElement(
-              ProcessContext c,
-              @StateId(sumStateId) CombiningState<Integer, int[], Integer> count) {
+      @ProcessElement
+      public void processElement(ProcessContext c, @StateId(sumStateId) CombiningState<Integer, int[], Integer> count) {
+        triggerTimeout();
 
-            System.out.println("-> current sum is " + count.read());
-            KV<String, Integer> value = c.element();
-            count.add(value.getValue());
-            System.out.println("Added new value: " + value.getValue());
+        KV<String, Integer> value = c.element();
+        count.add(value.getValue());
+        System.out.println("===== Handled an event: " + value + ", current thread: " + Thread.currentThread().getName());
 
-            triggerTimeout();
-          }
-        };
+      }
+    };
 
-    pipeline
-        .apply(Create.of(input))
-        .apply(ParDo.of(doFn));
+    pipeline.apply(Create.of(input)).apply(ParDo.of(new DoFn<KV<String, Integer>, KV<String, Integer>>() {
+      @ProcessElement
+      public void process(ProcessContext c) {
+        c.output(c.element());
+        System.out.println("----- Received an event: " + c.element() + ", current thread: " + Thread.currentThread().getName());
+      }
+    })).apply(ParDo.of(doFn));
   }
 
   private static void triggerTimeout() {
     try {
-      Thread.sleep(30000L);
+      Thread.sleep(10000L);
     } catch (Exception ignored) {
     }
   }
