@@ -67,7 +67,15 @@ public class UDFTimeoutTest {
   private static Pipeline buildPipeline(PipelineOptions options) {
     Pipeline pipeline = Pipeline.create(options);
 
-    pipeline.apply(Create.of(buildInputData())).apply(ParDo.of(new DoFn<KV<String, Integer>, KV<String, Integer>>() {
+    pipeline.apply(Create.of(buildInputData()))
+        .apply(ParDo.of(new DoFn<KV<String, Integer>, KV<String, Integer>>() {
+          @ProcessElement
+          public void process(ProcessContext context) {
+            System.out.println("----- Received an event: " + context.element() + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            context.output(context.element());
+          }
+        }))
+        .apply(ParDo.of(new DoFn<KV<String, Integer>, KV<String, Integer>>() {
       @ProcessElement
       public void process(ProcessContext context) {
         triggerTimeout();
@@ -89,7 +97,7 @@ public class UDFTimeoutTest {
 
   private static void triggerTimeout() {
     try {
-      Thread.sleep(10000L);
+      Thread.sleep(1000000L);
     } catch (InterruptedException e) {
     }
   }
