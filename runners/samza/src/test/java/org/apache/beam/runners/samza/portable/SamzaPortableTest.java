@@ -17,7 +17,9 @@
  */
 package org.apache.beam.runners.samza.portable;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,31 +46,6 @@ import org.junit.Test;
 })
 public class SamzaPortableTest {
 
-  public static void main(String[] args) {
-    TestPortablePipelineOptions options = PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
-    options.setJobServerDriver((Class) SamzaJobServerDriver.class);
-    options.setJobServerConfig("--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
-    options.setRunner(TestPortableRunner.class);
-    options.setEnvironmentExpirationMillis(10000);
-    options.setDefaultEnvironmentType("EMBEDDED");
-
-    SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
-    samzaOptions.setMaxBundleSize(3);
-
-    Map<String, String> configs = new HashMap<>();
-    configs.put("task.callback.timeout.ms", "5000");
-    samzaOptions.setConfigOverride(configs);
-
-    Pipeline pipeline = Pipeline.create(options);
-    createStatefulPipeline(pipeline);
-    pipeline.run().waitUntilFinish();
-  }
-
-  @Test
-  public void testClassic() {
-    System.out.println("Hello...");
-  }
-
   @Test
   public void test() {
     TestPortablePipelineOptions options = PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
@@ -79,7 +56,7 @@ public class SamzaPortableTest {
     options.setDefaultEnvironmentType("EMBEDDED");
 
     SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
-    samzaOptions.setMaxBundleSize(3);
+    samzaOptions.setMaxBundleSize(2);
 
     Map<String, String> configs = new HashMap<>();
     configs.put("task.callback.timeout.ms", "5000");
@@ -92,7 +69,7 @@ public class SamzaPortableTest {
 
   private static void createStatefulPipeline(Pipeline pipeline) {
     final List<KV<String, Integer>> input = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 5; i++) {
       input.add(KV.of("" + i, i));
     }
 
@@ -108,7 +85,7 @@ public class SamzaPortableTest {
 
         KV<String, Integer> value = c.element();
         count.add(value.getValue());
-        System.out.println("===== Handled an event: " + value + ", current thread: " + Thread.currentThread().getName());
+        System.out.println("===== Handled an event: " + value + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
 
       }
     };
@@ -117,7 +94,7 @@ public class SamzaPortableTest {
       @ProcessElement
       public void process(ProcessContext c) {
         c.output(c.element());
-        System.out.println("----- Received an event: " + c.element() + ", current thread: " + Thread.currentThread().getName());
+        System.out.println("----- Received an event: " + c.element() + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
       }
     })).apply(ParDo.of(doFn));
   }

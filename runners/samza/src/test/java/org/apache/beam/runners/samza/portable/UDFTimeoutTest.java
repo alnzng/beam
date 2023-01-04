@@ -1,9 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.beam.runners.samza.portable;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.beam.runners.portability.testing.TestPortablePipelineOptions;
 import org.apache.beam.runners.portability.testing.TestPortableRunner;
 import org.apache.beam.runners.samza.SamzaJobServerDriver;
@@ -15,11 +28,22 @@ import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
+import org.junit.Test;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+@SuppressWarnings({"rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
+    "unused" // TODO(BEAM-13271): Remove when new version of errorprone is released (2.11.0)
+})
 public class UDFTimeoutTest {
 
-  public static void main(String[] args) {
+  @Test
+  public void testPortable() {
     buildPipeline(buildOptions()).run().waitUntilFinish();
   }
 
@@ -28,11 +52,11 @@ public class UDFTimeoutTest {
     options.setJobServerDriver((Class) SamzaJobServerDriver.class);
     options.setJobServerConfig("--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
     options.setRunner(TestPortableRunner.class);
-    options.setEnvironmentExpirationMillis(10000);
+    options.setEnvironmentExpirationMillis(0);
     options.setDefaultEnvironmentType("EMBEDDED");
 
     SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
-    samzaOptions.setMaxBundleSize(2);
+    samzaOptions.setMaxBundleSize(1);
     Map<String, String> configs = new HashMap<>();
     configs.put("task.callback.timeout.ms", "5000");
     samzaOptions.setConfigOverride(configs);
@@ -48,7 +72,7 @@ public class UDFTimeoutTest {
       public void process(ProcessContext context) {
         triggerTimeout();
         context.output(context.element());
-        System.out.println("Handled the event: " + context.element());
+        System.out.println("===== Handled an event: " + context.element() + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
       }
     }));
 
@@ -57,7 +81,7 @@ public class UDFTimeoutTest {
 
   private static List<KV<String, Integer>> buildInputData() {
     final List<KV<String, Integer>> input = new ArrayList<>();
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 10; i++) {
       input.add(KV.of("" + i, i));
     }
     return input;
@@ -65,7 +89,7 @@ public class UDFTimeoutTest {
 
   private static void triggerTimeout() {
     try {
-      Thread.sleep(20000L);
+      Thread.sleep(10000L);
     } catch (InterruptedException e) {
     }
   }
