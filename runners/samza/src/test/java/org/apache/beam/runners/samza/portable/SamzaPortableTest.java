@@ -40,17 +40,19 @@ import org.apache.beam.sdk.transforms.Sum;
 import org.apache.beam.sdk.values.KV;
 import org.junit.Test;
 
-
-@SuppressWarnings({"rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
-    "unused" // TODO(BEAM-13271): Remove when new version of errorprone is released (2.11.0)
+@SuppressWarnings({
+  "rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
+  "unused" // TODO(BEAM-13271): Remove when new version of errorprone is released (2.11.0)
 })
 public class SamzaPortableTest {
 
   @Test
   public void test() {
-    TestPortablePipelineOptions options = PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
+    TestPortablePipelineOptions options =
+        PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
     options.setJobServerDriver((Class) SamzaJobServerDriver.class);
-    options.setJobServerConfig("--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
+    options.setJobServerConfig(
+        "--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
     options.setRunner(TestPortableRunner.class);
     options.setEnvironmentExpirationMillis(10000);
     options.setDefaultEnvironmentType("EMBEDDED");
@@ -74,29 +76,48 @@ public class SamzaPortableTest {
     }
 
     final String sumStateId = "count-state";
-    final DoFn<KV<String, Integer>, Void> doFn = new DoFn<KV<String, Integer>, Void>() {
-      @StateId(sumStateId)
-      private final StateSpec<CombiningState<Integer, int[], Integer>> sumState =
-          StateSpecs.combiningFromInputInternal(VarIntCoder.of(), Sum.ofIntegers());
+    final DoFn<KV<String, Integer>, Void> doFn =
+        new DoFn<KV<String, Integer>, Void>() {
+          @StateId(sumStateId)
+          private final StateSpec<CombiningState<Integer, int[], Integer>> sumState =
+              StateSpecs.combiningFromInputInternal(VarIntCoder.of(), Sum.ofIntegers());
 
-      @ProcessElement
-      public void processElement(ProcessContext c, @StateId(sumStateId) CombiningState<Integer, int[], Integer> count) {
-        triggerTimeout();
+          @ProcessElement
+          public void processElement(
+              ProcessContext c,
+              @StateId(sumStateId) CombiningState<Integer, int[], Integer> count) {
+            triggerTimeout();
 
-        KV<String, Integer> value = c.element();
-        count.add(value.getValue());
-        System.out.println("===== Handled an event: " + value + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            KV<String, Integer> value = c.element();
+            count.add(value.getValue());
+            System.out.println(
+                "===== Handled an event: "
+                    + value
+                    + ", current thread: "
+                    + Thread.currentThread().getName()
+                    + ", current time: "
+                    + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+          }
+        };
 
-      }
-    };
-
-    pipeline.apply(Create.of(input)).apply(ParDo.of(new DoFn<KV<String, Integer>, KV<String, Integer>>() {
-      @ProcessElement
-      public void process(ProcessContext c) {
-        c.output(c.element());
-        System.out.println("----- Received an event: " + c.element() + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
-      }
-    })).apply(ParDo.of(doFn));
+    pipeline
+        .apply(Create.of(input))
+        .apply(
+            ParDo.of(
+                new DoFn<KV<String, Integer>, KV<String, Integer>>() {
+                  @ProcessElement
+                  public void process(ProcessContext c) {
+                    c.output(c.element());
+                    System.out.println(
+                        "----- Received an event: "
+                            + c.element()
+                            + ", current thread: "
+                            + Thread.currentThread().getName()
+                            + ", current time: "
+                            + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+                  }
+                }))
+        .apply(ParDo.of(doFn));
   }
 
   private static void triggerTimeout() {

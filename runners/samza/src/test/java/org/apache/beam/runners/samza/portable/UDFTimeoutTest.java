@@ -17,6 +17,12 @@
  */
 package org.apache.beam.runners.samza.portable;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.beam.runners.portability.testing.TestPortablePipelineOptions;
 import org.apache.beam.runners.portability.testing.TestPortableRunner;
 import org.apache.beam.runners.samza.SamzaJobServerDriver;
@@ -30,15 +36,9 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.junit.Test;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-@SuppressWarnings({"rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
-    "unused" // TODO(BEAM-13271): Remove when new version of errorprone is released (2.11.0)
+@SuppressWarnings({
+  "rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
+  "unused" // TODO(BEAM-13271): Remove when new version of errorprone is released (2.11.0)
 })
 public class UDFTimeoutTest {
 
@@ -48,9 +48,11 @@ public class UDFTimeoutTest {
   }
 
   private static TestPortablePipelineOptions buildOptions() {
-    TestPortablePipelineOptions options = PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
+    TestPortablePipelineOptions options =
+        PipelineOptionsFactory.as(TestPortablePipelineOptions.class);
     options.setJobServerDriver((Class) SamzaJobServerDriver.class);
-    options.setJobServerConfig("--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
+    options.setJobServerConfig(
+        "--job-host=localhost", "--job-port=0", "--artifact-port=0", "--expansion-port=0");
     options.setRunner(TestPortableRunner.class);
     options.setEnvironmentExpirationMillis(0);
     options.setDefaultEnvironmentType("EMBEDDED");
@@ -67,22 +69,39 @@ public class UDFTimeoutTest {
   private static Pipeline buildPipeline(PipelineOptions options) {
     Pipeline pipeline = Pipeline.create(options);
 
-    pipeline.apply(Create.of(buildInputData()))
-        .apply(ParDo.of(new DoFn<KV<String, Integer>, KV<String, Integer>>() {
-          @ProcessElement
-          public void process(ProcessContext context) {
-            System.out.println("----- Received an event: " + context.element() + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
-            context.output(context.element());
-          }
-        }))
-        .apply(ParDo.of(new DoFn<KV<String, Integer>, KV<String, Integer>>() {
-      @ProcessElement
-      public void process(ProcessContext context) {
-        triggerTimeout();
-        context.output(context.element());
-        System.out.println("===== Handled an event: " + context.element() + ", current thread: " + Thread.currentThread().getName() + ", current time: " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
-      }
-    }));
+    pipeline
+        .apply(Create.of(buildInputData()))
+        .apply(
+            ParDo.of(
+                new DoFn<KV<String, Integer>, KV<String, Integer>>() {
+                  @ProcessElement
+                  public void process(ProcessContext context) {
+                    System.out.println(
+                        "----- Received an event: "
+                            + context.element()
+                            + ", current thread: "
+                            + Thread.currentThread().getName()
+                            + ", current time: "
+                            + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+                    context.output(context.element());
+                  }
+                }))
+        .apply(
+            ParDo.of(
+                new DoFn<KV<String, Integer>, KV<String, Integer>>() {
+                  @ProcessElement
+                  public void process(ProcessContext context) {
+                    triggerTimeout();
+                    context.output(context.element());
+                    System.out.println(
+                        "===== Handled an event: "
+                            + context.element()
+                            + ", current thread: "
+                            + Thread.currentThread().getName()
+                            + ", current time: "
+                            + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+                  }
+                }));
 
     return pipeline;
   }
