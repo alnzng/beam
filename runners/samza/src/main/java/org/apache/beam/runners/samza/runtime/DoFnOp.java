@@ -205,6 +205,7 @@ public class DoFnOp<InT, FnOutT, OutT> implements Op<InT, OutT, Void> {
             outputFutureCollector,
             samzaPipelineOptions.getMaxBundleSize(),
             samzaPipelineOptions.getMaxBundleTimeMs(),
+            samzaPipelineOptions.getBundleProcessingTimeout(),
             timerRegistry,
             bundleCheckTimerId);
 

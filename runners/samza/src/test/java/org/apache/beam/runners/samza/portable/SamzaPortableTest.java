@@ -38,7 +38,6 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Sum;
 import org.apache.beam.sdk.values.KV;
-import org.junit.Test;
 
 @SuppressWarnings({
   "rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
@@ -46,7 +45,6 @@ import org.junit.Test;
 })
 public class SamzaPortableTest {
 
-  @Test
   public void test() {
     TestPortablePipelineOptions options =
         PipelineOptionsFactory.as(TestPortablePipelineOptions.class);

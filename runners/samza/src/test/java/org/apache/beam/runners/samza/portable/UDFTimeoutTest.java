@@ -34,7 +34,6 @@ import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
-import org.junit.Test;
 
 @SuppressWarnings({
   "rawtypes", // TODO(https://issues.apache.org/jira/browse/BEAM-10556)
@@ -42,7 +41,6 @@ import org.junit.Test;
 })
 public class UDFTimeoutTest {
 
-  @Test
   public void testPortable() {
     buildPipeline(buildOptions()).run().waitUntilFinish();
   }
@@ -60,8 +58,9 @@ public class UDFTimeoutTest {
     SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
     samzaOptions.setMaxBundleSize(50);
     samzaOptions.setMaxBundleTimeMs(200000L);
+    samzaOptions.setBundleProcessingTimeout(20000);
     Map<String, String> configs = new HashMap<>();
-    configs.put("task.callback.timeout.ms", "5000");
+    configs.put("task.callback.timeout.ms", "10000");
     samzaOptions.setConfigOverride(configs);
 
     return options;

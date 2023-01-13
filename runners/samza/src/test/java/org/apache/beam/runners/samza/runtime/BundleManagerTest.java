@@ -46,6 +46,7 @@ import org.mockito.ArgumentCaptor;
 public final class BundleManagerTest {
   private static final long MAX_BUNDLE_SIZE = 3;
   private static final long MAX_BUNDLE_TIME_MS = 2000;
+  private static final long BUNDLE_PROCESSING_TIMEOUT_MS = 10000;
   private static final String BUNDLE_CHECK_TIMER_ID = "bundle-check-test-timer";
 
   private FutureCollector<String> mockFutureCollector;
@@ -64,6 +65,7 @@ public final class BundleManagerTest {
             mockFutureCollector,
             MAX_BUNDLE_SIZE,
             MAX_BUNDLE_TIME_MS,
+            BUNDLE_PROCESSING_TIMEOUT_MS,
             mockScheduler,
             BUNDLE_CHECK_TIMER_ID);
   }
@@ -313,6 +315,7 @@ public final class BundleManagerTest {
             mockFutureCollector,
             MAX_BUNDLE_SIZE,
             0,
+            BUNDLE_PROCESSING_TIMEOUT_MS,
             mockScheduler,
             BUNDLE_CHECK_TIMER_ID);
     OpEmitter<String> mockEmitter = mock(OpEmitter.class);

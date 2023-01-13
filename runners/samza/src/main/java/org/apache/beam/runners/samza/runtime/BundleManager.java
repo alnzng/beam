@@ -20,10 +20,12 @@ package org.apache.beam.runners.samza.runtime;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 import org.apache.beam.runners.core.StateNamespaces;
 import org.apache.beam.runners.core.TimerInternals;
@@ -65,6 +67,7 @@ public class BundleManager<OutT> {
 
   private final long maxBundleSize;
   private final long maxBundleTimeMs;
+  private final long bundleProcessingTimeoutMs;
   private final BundleProgressListener<OutT> bundleProgressListener;
   private final FutureCollector<OutT> futureCollector;
   private final Scheduler<KeyedTimerData<Void>> bundleTimerScheduler;
@@ -92,10 +95,12 @@ public class BundleManager<OutT> {
       FutureCollector<OutT> futureCollector,
       long maxBundleSize,
       long maxBundleTimeMs,
+      long bundleProcessingTimeoutMs,
       Scheduler<KeyedTimerData<Void>> bundleTimerScheduler,
       String bundleCheckTimerId) {
     this.maxBundleSize = maxBundleSize;
     this.maxBundleTimeMs = maxBundleTimeMs;
+    this.bundleProcessingTimeoutMs = bundleProcessingTimeoutMs;
     this.bundleProgressListener = bundleProgressListener;
     this.bundleTimerScheduler = bundleTimerScheduler;
     this.bundleCheckTimerId = bundleCheckTimerId;
@@ -241,10 +246,7 @@ public class BundleManager<OutT> {
               currentActiveBundleDoneFuture != null
                   ? currentActiveBundleDoneFuture
                   : CompletableFuture.completedFuture(null),
-              (res, ignored) -> {
-                bundleProgressListener.onBundleFinished(emitter);
-                return res;
-              });
+              bundleProcessFunction(emitter));
 
       BiConsumer<Collection<WindowedValue<OutT>>, Void> watermarkPropagationFn;
       if (watermarkHold == null) {
@@ -277,6 +279,28 @@ public class BundleManager<OutT> {
 
     // emit the future to the propagate it to rest of the DAG
     emitter.emitFuture(outputFuture);
+  }
+
+  private BiFunction<Collection<WindowedValue<OutT>>, Void, Collection<WindowedValue<OutT>>>
+      bundleProcessFunction(OpEmitter<OutT> emitter) {
+    return (res, ignored) -> {
+      if (bundleProcessingTimeoutMs >= 0) {
+        CompletableFuture<Void> future =
+            CompletableFuture.runAsync(() -> bundleProgressListener.onBundleFinished(emitter));
+
+        try {
+          future.get(bundleProcessingTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+          throw new RuntimeException(
+              String.format(
+                  "Failed to complete a bundle processing within %d ms", bundleProcessingTimeoutMs),
+              e);
+        }
+      } else {
+        bundleProgressListener.onBundleFinished(emitter);
+      }
+      return res;
+    };
   }
 
   @VisibleForTesting
