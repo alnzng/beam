@@ -58,7 +58,8 @@ public class UDFTimeoutTest {
     options.setDefaultEnvironmentType("EMBEDDED");
 
     SamzaPipelineOptions samzaOptions = options.as(SamzaPipelineOptions.class);
-    samzaOptions.setMaxBundleSize(1);
+    samzaOptions.setMaxBundleSize(50);
+    samzaOptions.setMaxBundleTimeMs(200000L);
     Map<String, String> configs = new HashMap<>();
     configs.put("task.callback.timeout.ms", "5000");
     samzaOptions.setConfigOverride(configs);
@@ -71,21 +72,6 @@ public class UDFTimeoutTest {
 
     pipeline
         .apply(Create.of(buildInputData()))
-        .apply(
-            ParDo.of(
-                new DoFn<KV<String, Integer>, KV<String, Integer>>() {
-                  @ProcessElement
-                  public void process(ProcessContext context) {
-                    System.out.println(
-                        "----- Received an event: "
-                            + context.element()
-                            + ", current thread: "
-                            + Thread.currentThread().getName()
-                            + ", current time: "
-                            + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
-                    context.output(context.element());
-                  }
-                }))
         .apply(
             ParDo.of(
                 new DoFn<KV<String, Integer>, KV<String, Integer>>() {
@@ -116,7 +102,7 @@ public class UDFTimeoutTest {
 
   private static void triggerTimeout() {
     try {
-      Thread.sleep(1000000L);
+      Thread.sleep(100000L);
     } catch (InterruptedException e) {
     }
   }
